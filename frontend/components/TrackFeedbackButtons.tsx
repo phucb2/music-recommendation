@@ -52,7 +52,7 @@ export function TrackFeedbackButtons({
   songId: string;
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+    <div className="relative z-10 flex shrink-0 items-center gap-2 sm:gap-2.5">
       <button
         type="button"
         onClick={() => void emitLikeDislike({ userId, songId, kind: "like" })}

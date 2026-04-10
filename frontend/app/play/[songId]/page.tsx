@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PlayerView } from "@/components/PlayerView";
 import { getSession } from "@/lib/auth";
-import { getNextSongs, getSongById } from "@/lib/mock/catalog";
+import { resolvePlayContext } from "@/lib/server/catalog-api";
 import type { PlaySurface } from "@/lib/types";
 
 export default async function PlayPage({
@@ -17,10 +17,10 @@ export default async function PlayPage({
   const { songId } = await params;
   const { from } = await searchParams;
 
-  const song = getSongById(songId);
-  if (!song) notFound();
+  const ctx = await resolvePlayContext(songId);
+  if (!ctx) notFound();
 
-  const nextSongs = getNextSongs(songId);
+  const { song, nextSongs } = ctx;
   const playSurface: PlaySurface = from === "next_song" ? "next_song" : "homepage";
 
   return (

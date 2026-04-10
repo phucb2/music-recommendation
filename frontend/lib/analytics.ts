@@ -18,10 +18,16 @@ export function getOrCreateAnalyticsSessionId(): string {
   return id;
 }
 
+type EmitOptions = {
+  /** Use only for unload / tab hide / in-flight navigations — not for normal clicks (keepalive can break some browsers’ POST handling). */
+  keepalive?: boolean;
+};
+
 export async function emitEvent(
   partial: Omit<AnalyticsEvent, "timestamp" | "session_id"> & {
     session_id?: string;
   },
+  options?: EmitOptions,
 ): Promise<void> {
   const session_id = partial.session_id ?? getOrCreateAnalyticsSessionId();
   const body: AnalyticsEvent = {
@@ -30,14 +36,22 @@ export async function emitEvent(
     timestamp: new Date().toISOString(),
   };
   try {
-    await fetch("/api/events", {
+    const res = await fetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      keepalive: true,
+      ...(options?.keepalive ? { keepalive: true as const } : {}),
     });
-  } catch {
-    /* best-effort */
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[analytics] POST /api/events failed", res.status, detail);
+      }
+    }
+  } catch (e) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[analytics] POST /api/events error", e);
+    }
   }
 }
 
@@ -48,16 +62,21 @@ export async function emitPlayEnd(args: {
   playDurationSeconds: number;
   songDurationSeconds: number;
   completed: boolean;
+  /** Tab close / hide — request may outlive the page. */
+  keepalive?: boolean;
 }): Promise<void> {
-  await emitEvent({
-    user_id: args.userId,
-    song_id: args.songId,
-    surface: args.playSurface,
-    event_type: EVENT_TYPE.play_end,
-    play_duration_seconds: Math.round(args.playDurationSeconds),
-    song_duration_seconds: args.songDurationSeconds,
-    completed: args.completed,
-  });
+  await emitEvent(
+    {
+      user_id: args.userId,
+      song_id: args.songId,
+      surface: args.playSurface,
+      event_type: EVENT_TYPE.play_end,
+      play_duration_seconds: Math.round(args.playDurationSeconds),
+      song_duration_seconds: args.songDurationSeconds,
+      completed: args.completed,
+    },
+    { keepalive: args.keepalive },
+  );
 }
 
 export async function emitSkip(args: {
@@ -67,14 +86,17 @@ export async function emitSkip(args: {
   playDurationSeconds: number;
   songDurationSeconds: number;
 }): Promise<void> {
-  await emitEvent({
-    user_id: args.userId,
-    song_id: args.songId,
-    surface: args.playSurface,
-    event_type: EVENT_TYPE.skip,
-    play_duration_seconds: Math.round(args.playDurationSeconds),
-    song_duration_seconds: args.songDurationSeconds,
-  });
+  await emitEvent(
+    {
+      user_id: args.userId,
+      song_id: args.songId,
+      surface: args.playSurface,
+      event_type: EVENT_TYPE.skip,
+      play_duration_seconds: Math.round(args.playDurationSeconds),
+      song_duration_seconds: args.songDurationSeconds,
+    },
+    { keepalive: true },
+  );
 }
 
 export async function emitLikeDislike(args: {

@@ -1,3 +1,7 @@
+/**
+ * Analytics BFF: validates payloads, then forwards to the catalog API.
+ * Only `POST {BACKEND_API_URL}/v1/events` persists rows to `analytics_events` in Postgres.
+ */
 import { NextResponse } from "next/server";
 import type { AnalyticsEvent } from "@/lib/types";
 
@@ -15,6 +19,11 @@ function looksLikeEvent(v: unknown): v is AnalyticsEvent {
     typeof v.event_type === "string" &&
     typeof v.session_id === "string"
   );
+}
+
+function backendUrl(): string | undefined {
+  const u = process.env.BACKEND_API_URL;
+  return u && u.length > 0 ? u.replace(/\/$/, "") : undefined;
 }
 
 export async function POST(request: Request) {
@@ -44,5 +53,41 @@ export async function POST(request: Request) {
     console.log("[analytics]", JSON.stringify(e));
   }
 
-  return NextResponse.json({ received: events.length });
+  const base = backendUrl();
+  if (!base) {
+    return NextResponse.json(
+      {
+        error:
+          "BACKEND_API_URL is not set. Configure it so this route can call POST /v1/events on the catalog API; only the API writes to analytics_events.",
+      },
+      { status: 503 },
+    );
+  }
+
+  const forwardBody = Array.isArray(raw) ? raw : raw;
+  try {
+    const fr = await fetch(`${base}/v1/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(forwardBody),
+    });
+    const text = await fr.text();
+    if (!fr.ok) {
+      return NextResponse.json(
+        { error: "Backend rejected events", detail: text },
+        { status: 502 },
+      );
+    }
+    try {
+      return NextResponse.json(JSON.parse(text) as { received: number });
+    } catch {
+      return NextResponse.json({ received: events.length });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: "Failed to reach backend", detail: message },
+      { status: 502 },
+    );
+  }
 }

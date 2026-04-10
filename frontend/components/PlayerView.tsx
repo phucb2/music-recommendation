@@ -132,6 +132,7 @@ export function PlayerView({
         playDurationSeconds: a.currentTime,
         songDurationSeconds: song.duration_seconds,
         completed: false,
+        keepalive: true,
       });
     }
 
@@ -145,6 +146,7 @@ export function PlayerView({
         playDurationSeconds: a.currentTime,
         songDurationSeconds: song.duration_seconds,
         completed: false,
+        keepalive: true,
       });
     }
 
@@ -185,6 +187,7 @@ export function PlayerView({
         playDurationSeconds: a.currentTime,
         songDurationSeconds: song.duration_seconds,
         completed: false,
+        keepalive: true,
       });
     }
     if (next) {

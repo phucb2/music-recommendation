@@ -1,4 +1,43 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: music
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d music"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/music
+      CORS_ORIGINS: http://localhost:3000,http://web:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   web:
     build:
       context: ./frontend
@@ -7,3 +46,10 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      BACKEND_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
