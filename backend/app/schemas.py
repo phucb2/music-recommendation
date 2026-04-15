@@ -21,6 +21,15 @@ class SongOut(BaseModel):
     region: str | None = None
     explicit_content: bool | None = None
     popularity: float | None = None
+    danceability: float | None = None
+    energy: float | None = None
+    loudness: float | None = None
+    speechiness: float | None = None
+    acousticness: float | None = None
+    instrumentalness: float | None = None
+    liveness: float | None = None
+    valence: float | None = None
+    tempo: float | None = None
 
 
 class AnalyticsEventIn(BaseModel):

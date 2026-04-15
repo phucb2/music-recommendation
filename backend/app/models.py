@@ -55,6 +55,16 @@ class Song(Base):
     explicit_content: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     popularity: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    danceability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    energy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    loudness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    speechiness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    acousticness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    instrumentalness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    liveness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    valence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tempo: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     __table_args__ = (
         Index("ix_songs_genre", "genre"),
         Index("ix_songs_artist_id", "artist_id"),

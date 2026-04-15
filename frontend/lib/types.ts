@@ -14,6 +14,17 @@ export type Song = {
   duration_seconds: number;
   /** Stream URL for HTML audio. */
   audio_url: string;
+  /** Precomputed audio features (optional; same semantics as PRD §8.4.1). */
+  danceability?: number;
+  energy?: number;
+  loudness?: number;
+  speechiness?: number;
+  acousticness?: number;
+  instrumentalness?: number;
+  liveness?: number;
+  valence?: number;
+  /** Tempo in BPM. */
+  tempo?: number;
 };
 
 export type Surface = (typeof SURFACE)[keyof typeof SURFACE];

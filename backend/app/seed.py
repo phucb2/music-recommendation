@@ -9,7 +9,9 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import Song, User
 
-# Canonical catalog: keys must match Song columns (optional keys may be absent → stored as NULL).
+GENRE_SENTINEL = "others"
+
+# Canonical catalog: optional keys may be absent → NULL in DB; missing `genre` → GENRE_SENTINEL.
 CATALOG_ROWS: list[dict] = [
     {
         "song_id": "s1",
@@ -86,7 +88,6 @@ CATALOG_ROWS: list[dict] = [
         "title": "House Lights",
         "author": "Dana Frost",
         "singer": "Circuit Choir",
-        "genre": "Choral",
         "artwork_url": "https://picsum.photos/seed/houselights/400/400",
         "duration_seconds": 365,
         "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
@@ -103,6 +104,15 @@ _OPTIONAL_SONG_KEYS = (
     "region",
     "explicit_content",
     "popularity",
+    "danceability",
+    "energy",
+    "loudness",
+    "speechiness",
+    "acousticness",
+    "instrumentalness",
+    "liveness",
+    "valence",
+    "tempo",
 )
 
 
@@ -111,19 +121,27 @@ def _is_postgres() -> bool:
     return u.startswith("postgresql") or "+psycopg2" in u or "+asyncpg" in u
 
 
+def _normalize_genre(row: dict) -> str:
+    g = row.get("genre")
+    if g is None:
+        return GENRE_SENTINEL
+    s = str(g).strip()
+    return s if s else GENRE_SENTINEL
+
+
 def _song_row_to_values(row: dict) -> dict:
-    """Full row for Song: missing optional keys become None so DB stays aligned with catalog."""
+    """Full row for Song: missing optional keys become None; genre never NULL (see GENRE_SENTINEL)."""
     required = (
         "song_id",
         "title",
         "author",
         "singer",
-        "genre",
         "artwork_url",
         "duration_seconds",
         "audio_url",
     )
     out = {k: row[k] for k in required}
+    out["genre"] = _normalize_genre(row)
     for k in _OPTIONAL_SONG_KEYS:
         out[k] = row.get(k)
     return out

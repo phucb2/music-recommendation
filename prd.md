@@ -1,5 +1,7 @@
 # PRD: Music Recommendation System for Subscribed Users
 
+> **What:** Product requirements. **When:** Scoping features, data, and ML for this system.
+
 ## 1. Objective
 
 Build a scalable music recommendation system for **subscribed users** that improves music discovery and listening engagement on two product surfaces:
@@ -174,8 +176,8 @@ The system must:
 
 Use:
 
-* like / favorite
-* dislike / hide
+* like
+* dislike
 
 These are strong but sparse signals.
 
@@ -187,11 +189,9 @@ Use:
 
 This is the main behavioral signal for the first version.
 
-Examples of derived interpretation:
-
-* long play duration = positive preference
-* very short play duration = negative preference
-* medium play duration = weak positive or neutral
+An alternative:
+* **play count**
+  
 
 ---
 
@@ -228,8 +228,32 @@ The recommendation system should use metadata such as:
 * `country / region`
 * `explicit_content_flag`
 * `historical popularity`
+* precomputed audio features (ranges and ingestion rules in §8.4.1)
 
 These fields support both similarity-based retrieval and collaborative models.
+
+### 8.4.1 Modeling feature spec (catalog / training)
+
+Canonical item features for modeling and storage. Names match the platform **`songs`** record (API/DB), not raw extract column names.
+
+| Concept | Field | Spec |
+|--------|--------|------|
+| Artist cardinality | `artist_id` | Reference dataset: ~8,317 distinct `artist_id` values (informational). |
+| Genre | `genre` | Source may be missing ~50% of the time. **Do not store SQL NULL.** On ingest, normalize missing or blank genre to the sentinel **`others`**. Stored and returned as a non-null string. |
+| Year | `release_year` | Integer in **[1900, 2022]** when present. |
+| Duration | `duration_seconds` | **0–180** seconds (same as **0–3 minutes** if expressed as `duration_ms`, with \( \text{ms} = 1000 \times \text{seconds} \)). Seconds are the stored unit to avoid API churn. |
+| Danceability | `danceability` | **[0, 1]** |
+| Energy | `energy` | **[0, 1]** |
+| Loudness | `loudness` | **[-60, 3.64]** dB (same convention as common audio-feature APIs). |
+| Mode | *(not stored)* | Source may expose 0/1 (major/minor). **Recommender ignores**; omit from persistence in v1. |
+| Speechiness | `speechiness` | **[0, 1]**; mass often near **0**. |
+| Acousticness | `acousticness` | **[0, 1]**; mass often near **0**. |
+| Instrumentalness | `instrumentalness` | **[0, 1]**; mass often near **0**. |
+| Liveness | `liveness` | **[0, 1]** |
+| Valence | `valence` | **[0, 1]** — how emotionally positive the track sounds (0 = negative, 1 = positive). |
+| Tempo | `tempo` | **BPM** (beats per minute): speed or pulse of the track. *Tempo (nhịp độ) là tốc độ hoặc nhịp điệu của một bản nhạc, đo bằng nhịp trên phút (BPM).* |
+
+**Demo vs. modeled catalog:** Local seed or mock tracks may exceed **180s** duration; the **reference training catalog** is expected to respect the bounds above.
 
 ---
 
@@ -268,6 +292,7 @@ Retrieve songs similar to songs the user already likes using:
 * language
 * singer
 * release era
+* precomputed audio features from §8.4.1 **when present** (similarity in feature space)
 
 #### C. Preference-based expansion
 
@@ -301,6 +326,7 @@ Use:
 * same language
 * similar release era
 * similar metadata tags if available
+* similar precomputed audio features from §8.4.1 **when present** (not raw audio waveforms; see §5.2)
 
 ### Out of scope
 

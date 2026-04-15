@@ -77,7 +77,7 @@ export const CATALOG: Song[] = [
     title: "House Lights",
     author: "Dana Frost",
     singer: "Circuit Choir",
-    genre: "Choral",
+    genre: "others",
     artwork_url: "https://picsum.photos/seed/houselights/400/400",
     duration_seconds: 365,
     audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
