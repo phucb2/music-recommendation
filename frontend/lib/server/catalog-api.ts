@@ -1,4 +1,4 @@
-import type { Song } from "@/lib/types";
+import type { Song, SimilarSong } from "@/lib/types";
 import { dedupeBySongId, getHomeRecommendations, getNextSongs, getSongById } from "@/lib/mock/catalog";
 
 function backendBase(): string | undefined {
@@ -54,5 +54,21 @@ export async function resolvePlayContext(songId: string): Promise<{
     const song = getSongById(songId);
     if (!song) return null;
     return { song, nextSongs: getNextSongs(songId) };
+  }
+}
+
+/** Fetch KNN-based similar songs with similarity scores. */
+export async function resolveSimilarSongs(
+  songId: string,
+  topN = 6,
+): Promise<SimilarSong[]> {
+  const base = backendBase();
+  if (!base) return [];
+  try {
+    return await fetchJson<SimilarSong[]>(
+      `/v1/recommendations/similar?song_id=${encodeURIComponent(songId)}&top_n=${topN}`,
+    );
+  } catch {
+    return [];
   }
 }

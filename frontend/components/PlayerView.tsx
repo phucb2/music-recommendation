@@ -4,19 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EVENT_TYPE, SURFACE } from "@/lib/constants";
+import { EVENT_TYPE } from "@/lib/constants";
 import { emitEvent, emitPlayEnd, emitSkip } from "@/lib/analytics";
-import { TrackList } from "@/components/TrackList";
 import { LogoutButton } from "@/components/LogoutButton";
 import { SessionUser } from "@/components/SessionUser";
 import { TrackFeedbackButtons } from "@/components/TrackFeedbackButtons";
 import { PlaybackTimeline } from "@/components/PlaybackTimeline";
 import { SongCreditsPlayer } from "@/components/SongCredits";
 import { SiteFooter } from "@/components/SiteFooter";
-import type { PlaySurface, Song } from "@/lib/types";
+import type { PlaySurface, SimilarSong, Song } from "@/lib/types";
 
-/** Show this many “Up next” rows so the player fits one viewport without scrolling. */
-const UP_NEXT_VISIBLE = 3;
+/** Maximum similar songs shown in the panel. */
+const MAX_SIMILAR = 8;
 
 export function PlayerView({
   song,
@@ -24,12 +23,14 @@ export function PlayerView({
   username,
   playSurface,
   nextSongs,
+  similarSongs = [],
 }: {
   song: Song;
   userId: string;
   username: string;
   playSurface: PlaySurface;
   nextSongs: Song[];
+  similarSongs?: SimilarSong[];
 }) {
   const router = useRouter();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -37,9 +38,6 @@ export function PlayerView({
   const lastProgressEmit = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-
-  const queueVisible = nextSongs.slice(0, UP_NEXT_VISIBLE);
-  const queueOverflow = nextSongs.length - queueVisible.length;
 
   const sendPlayEnd = useCallback(
     async (completed: boolean) => {
@@ -278,25 +276,42 @@ export function PlayerView({
 
         <section
           className="flex min-h-0 flex-col overflow-hidden border-t border-white/10 pt-4 lg:col-span-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0 xl:col-span-6 xl:pl-8"
-          aria-labelledby="up-next"
+          aria-labelledby="knn-similar"
         >
-          <div className="mb-2 flex shrink-0 items-baseline justify-between gap-2">
-            <h2 id="up-next" className="text-xs font-medium uppercase tracking-wider text-muted">
-              Up next
-            </h2>
-            {queueOverflow > 0 ? (
-              <span className="text-[10px] text-muted/80">+{queueOverflow} more in queue</span>
-            ) : null}
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <TrackList
-              songs={queueVisible}
-              userId={userId}
-              surface={SURFACE.next_song}
-              layout="stack"
-              compact
-            />
-          </div>
+          <h2 id="knn-similar" className="mb-3 shrink-0 text-xs font-medium uppercase tracking-wider text-muted">
+            Similar songs (KNN)
+          </h2>
+          {similarSongs.length > 0 ? (
+            <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
+              {similarSongs.slice(0, MAX_SIMILAR).map(({ song: s, similarity_score }) => (
+                <li key={s.song_id}>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/play/${s.song_id}?from=next_song`)}
+                    className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
+                  >
+                    <Image
+                      src={s.artwork_url}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="shrink-0 rounded"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{s.title}</p>
+                      <p className="truncate text-xs text-muted">{s.singer}</p>
+                      <p className="mt-0.5 text-[10px] text-muted/60">{s.genre}</p>
+                    </div>
+                    <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                      {Math.round(similarity_score * 100)}%
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted/60">No similar songs found.</p>
+          )}
         </section>
       </div>
 
