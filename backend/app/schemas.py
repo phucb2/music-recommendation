@@ -49,3 +49,10 @@ class AnalyticsEventIn(BaseModel):
 
 class EventsAccepted(BaseModel):
     received: int
+
+
+class SimilarSongOut(BaseModel):
+    model_config = {"from_attributes": True}
+
+    song: SongOut
+    similarity_score: float

@@ -49,3 +49,8 @@ export type AnalyticsEvent = {
   /** True when playback reached natural end. */
   completed?: boolean;
 };
+
+export type SimilarSong = {
+  song: Song;
+  similarity_score: number;
+};

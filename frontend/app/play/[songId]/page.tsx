@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PlayerView } from "@/components/PlayerView";
 import { getSession } from "@/lib/auth";
-import { resolvePlayContext } from "@/lib/server/catalog-api";
+import { resolvePlayContext, resolveSimilarSongs } from "@/lib/server/catalog-api";
 import type { PlaySurface } from "@/lib/types";
 
 export default async function PlayPage({
@@ -17,7 +17,10 @@ export default async function PlayPage({
   const { songId } = await params;
   const { from } = await searchParams;
 
-  const ctx = await resolvePlayContext(songId);
+  const [ctx, similarSongs] = await Promise.all([
+    resolvePlayContext(songId),
+    resolveSimilarSongs(songId),
+  ]);
   if (!ctx) notFound();
 
   const { song, nextSongs } = ctx;
@@ -30,6 +33,7 @@ export default async function PlayPage({
       username={session.username}
       playSurface={playSurface}
       nextSongs={nextSongs}
+      similarSongs={similarSongs}
     />
   );
 }
