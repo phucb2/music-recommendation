@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.orm import Session
+import asyncio
 
-from app.config import settings
-from app.database import SessionLocal
-from app.models import Song, User
+from app.env_bootstrap import load_repo_environment
+from prisma import Prisma
+
+load_repo_environment()
 
 GENRE_SENTINEL = "others"
 
-# Canonical catalog: optional keys may be absent → NULL in DB; missing `genre` → GENRE_SENTINEL.
 CATALOG_ROWS: list[dict] = [
     {
         "song_id": "s1",
@@ -116,11 +115,6 @@ _OPTIONAL_SONG_KEYS = (
 )
 
 
-def _is_postgres() -> bool:
-    u = settings.database_url.lower()
-    return u.startswith("postgresql") or "+psycopg2" in u or "+asyncpg" in u
-
-
 def _normalize_genre(row: dict) -> str:
     g = row.get("genre")
     if g is None:
@@ -130,7 +124,6 @@ def _normalize_genre(row: dict) -> str:
 
 
 def _song_row_to_values(row: dict) -> dict:
-    """Full row for Song: missing optional keys become None; genre never NULL (see GENRE_SENTINEL)."""
     required = (
         "song_id",
         "title",
@@ -147,52 +140,38 @@ def _song_row_to_values(row: dict) -> dict:
     return out
 
 
-def _seed_users(session: Session) -> None:
-    if _is_postgres():
-        stmt = (
-            pg_insert(User)
-            .values(user_id="user_demo", username="demo", password_hash=None)
-            .on_conflict_do_nothing(index_elements=["user_id"])
+async def _run_async() -> None:
+    prisma = Prisma()
+    await prisma.connect()
+    try:
+        await prisma.user.upsert(
+            where={"user_id": "user_demo"},
+            data={
+                "create": {
+                    "user_id": "user_demo",
+                    "username": "demo",
+                    "password_hash": None,
+                },
+                "update": {"username": "demo"},
+            },
         )
-        session.execute(stmt)
-        return
-    if session.get(User, "user_demo") is None:
-        session.add(User(user_id="user_demo", username="demo", password_hash=None))
-
-
-def _seed_songs_postgres(session: Session) -> None:
-    for row in CATALOG_ROWS:
-        v = _song_row_to_values(row)
-        insert_stmt = pg_insert(Song).values(**v)
-        set_ = {k: getattr(insert_stmt.excluded, k) for k in v if k != "song_id"}
-        stmt = insert_stmt.on_conflict_do_update(index_elements=["song_id"], set_=set_)
-        session.execute(stmt)
-
-
-def _seed_songs_generic(session: Session) -> None:
-    for row in CATALOG_ROWS:
-        v = _song_row_to_values(row)
-        sid = v["song_id"]
-        existing = session.get(Song, sid)
-        if existing is None:
-            session.add(Song(**v))
-        else:
-            for key, val in v.items():
-                setattr(existing, key, val)
-
-
-def _seed_songs(session: Session) -> None:
-    if _is_postgres():
-        _seed_songs_postgres(session)
-    else:
-        _seed_songs_generic(session)
+        for row in CATALOG_ROWS:
+            v = _song_row_to_values(row)
+            sid = v["song_id"]
+            update = {k: val for k, val in v.items() if k != "song_id"}
+            await prisma.song.upsert(
+                where={"song_id": sid},
+                data={
+                    "create": v,
+                    "update": update,
+                },
+            )
+    finally:
+        await prisma.disconnect()
 
 
 def run() -> None:
-    with SessionLocal() as session:
-        _seed_users(session)
-        _seed_songs(session)
-        session.commit()
+    asyncio.run(_run_async())
 
 
 if __name__ == "__main__":

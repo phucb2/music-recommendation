@@ -144,7 +144,7 @@ Imports stay shallow: pages → feature components → `lib/*`.
 
 ## Data and session
 
-- **Catalog** is a static array in [lib/mock/catalog.ts](../lib/mock/catalog.ts); each `Song` includes `title`, `genre`, `author`, `singer`, `audio_url` (SoundHelix demos), and `artwork_url` (picsum; allowed in [next.config.ts](../next.config.ts)).
+- **Catalog** is a static array in [lib/mock/catalog.ts](../lib/mock/catalog.ts); each `Song` includes `title`, `genre`, `author`, `singer`, `audio_url` (SoundHelix demos), and `artwork_url` (picsum; allowed in [next.config.mjs](../next.config.mjs)).
 - **Home order** is deterministic from `userId` + `song_id` hash; the list intentionally includes a duplicate first row before **client dedupe** in [app/page.tsx](../app/page.tsx).
 - **Next songs** are “other catalog tracks” in stable slice order (`getNextSongs`).
 - **Session** is JSON in cookie `demo_session`: `{ "userId", "username" }` (username is the value used at sign-in, shown next to Logout), parsed in [lib/auth.ts](../lib/auth.ts). Login accepts **demo** / **demo** ([app/api/auth/login/route.ts](../app/api/auth/login/route.ts)).

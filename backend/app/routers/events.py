@@ -2,11 +2,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import TypeAdapter
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from prisma import Prisma
 
-from app.database import get_db
-from app.models import AnalyticsEvent, Song, User
+from app.database import get_prisma
 from app.schemas import AnalyticsEventIn, EventsAccepted
 
 router = APIRouter(tags=["events"])
@@ -25,7 +23,7 @@ def _parse_iso_ts(ts: str) -> datetime:
 
 
 @router.post("/v1/events", response_model=EventsAccepted)
-async def ingest_events(request: Request, db: Session = Depends(get_db)) -> EventsAccepted:
+async def ingest_events(request: Request, prisma: Prisma = Depends(get_prisma)) -> EventsAccepted:
     try:
         body = await request.json()
     except Exception as e:
@@ -59,9 +57,10 @@ async def ingest_events(request: Request, db: Session = Depends(get_db)) -> Even
     user_ids = {e.user_id for e in events_in}
     song_ids = {e.song_id for e in events_in}
 
-    users_found = set(
-        db.scalars(select(User.user_id).where(User.user_id.in_(user_ids))).all()
+    found_users = await prisma.user.find_many(
+        where={"user_id": {"in": list(user_ids)}},
     )
+    users_found = {u.user_id for u in found_users}
     missing_u = user_ids - users_found
     if missing_u:
         raise HTTPException(
@@ -69,9 +68,10 @@ async def ingest_events(request: Request, db: Session = Depends(get_db)) -> Even
             detail=f"Unknown user_id(s): {sorted(missing_u)}",
         )
 
-    songs_found = set(
-        db.scalars(select(Song.song_id).where(Song.song_id.in_(song_ids))).all()
+    found_songs = await prisma.song.find_many(
+        where={"song_id": {"in": list(song_ids)}},
     )
+    songs_found = {s.song_id for s in found_songs}
     missing_s = song_ids - songs_found
     if missing_s:
         raise HTTPException(
@@ -79,26 +79,24 @@ async def ingest_events(request: Request, db: Session = Depends(get_db)) -> Even
             detail=f"Unknown song_id(s): {sorted(missing_s)}",
         )
 
-    rows: list[AnalyticsEvent] = []
-    for e in events_in:
-        rows.append(
-            AnalyticsEvent(
-                user_id=e.user_id,
-                song_id=e.song_id,
-                occurred_at=_parse_iso_ts(e.timestamp),
-                surface=e.surface,
-                event_type=e.event_type,
-                session_id=e.session_id,
-                play_duration_seconds=e.play_duration_seconds,
-                song_duration_seconds=e.song_duration_seconds,
-                position=e.position,
-                request_id=e.request_id,
-                recommendation_id=e.recommendation_id,
-                completed=e.completed,
-            )
-        )
+    data = [
+        {
+            "user_id": e.user_id,
+            "song_id": e.song_id,
+            "occurred_at": _parse_iso_ts(e.timestamp),
+            "surface": e.surface,
+            "event_type": e.event_type,
+            "session_id": e.session_id,
+            "play_duration_seconds": e.play_duration_seconds,
+            "song_duration_seconds": e.song_duration_seconds,
+            "position": e.position,
+            "request_id": e.request_id,
+            "recommendation_id": e.recommendation_id,
+            "completed": e.completed,
+        }
+        for e in events_in
+    ]
 
-    db.add_all(rows)
-    db.commit()
+    received = await prisma.analyticsevent.create_many(data=data)
 
-    return EventsAccepted(received=len(rows))
+    return EventsAccepted(received=received)

@@ -1,20 +1,20 @@
-from collections.abc import Generator
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-
-from app.config import settings
-
-engine = create_engine(
-    settings.database_url,
-    pool_pre_ping=True,
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from fastapi import FastAPI, Request
+from prisma import Prisma
 
 
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    prisma = Prisma()
+    await prisma.connect()
+    app.state.prisma = prisma
     try:
-        yield db
+        yield
     finally:
-        db.close()
+        await prisma.disconnect()
+
+
+async def get_prisma(request: Request) -> AsyncIterator[Prisma]:
+    yield request.app.state.prisma

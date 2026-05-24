@@ -1,9 +1,7 @@
 """Deterministic homepage / next-song logic matching frontend/lib/mock/catalog.ts."""
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.models import Song
+from prisma import Prisma
+from prisma.models import Song
 
 
 def js_hash(s: str) -> int:
@@ -16,8 +14,8 @@ def js_hash(s: str) -> int:
     return h
 
 
-def home_recommendations(db: Session, user_id: str) -> list[Song]:
-    rows = list(db.scalars(select(Song)).all())
+async def home_recommendations(prisma: Prisma, user_id: str) -> list[Song]:
+    rows = list(await prisma.song.find_many())
     rows.sort(key=lambda s: js_hash(user_id + s.song_id))
     out = rows[:10]
     if out:
@@ -25,10 +23,9 @@ def home_recommendations(db: Session, user_id: str) -> list[Song]:
     return out
 
 
-def next_songs(db: Session, current_song_id: str, limit: int = 6) -> list[Song]:
-    rows = list(
-        db.scalars(
-            select(Song).where(Song.song_id != current_song_id).order_by(Song.song_id)
-        ).all()
+async def next_songs(prisma: Prisma, current_song_id: str, limit: int = 6) -> list[Song]:
+    return await prisma.song.find_many(
+        where={"song_id": {"not": current_song_id}},
+        order={"song_id": "asc"},
+        take=limit,
     )
-    return rows[:limit]

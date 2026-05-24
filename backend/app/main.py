@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.database import lifespan
 from app.routers import events, health, recommendations, songs
 
-app = FastAPI(title="Music catalog API", version="1.0.0")
+app = FastAPI(title="Music catalog API", version="1.0.0", lifespan=lifespan)
 
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
