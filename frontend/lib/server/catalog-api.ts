@@ -1,5 +1,5 @@
 import type { Song } from "@/lib/types";
-import { dedupeBySongId, getHomeRecommendations, getNextSongs, getSongById } from "@/lib/mock/catalog";
+import { dedupeBySongId, getNextSongs, getSongById } from "@/lib/mock/catalog";
 
 function backendBase(): string | undefined {
   const u = process.env.BACKEND_API_URL;
@@ -17,24 +17,23 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** Homepage rec list: API when BACKEND_API_URL is set, else mock catalog. */
+/** Homepage rec list: requires BACKEND_API_URL to be set. */
 export async function resolveHomeRecommendations(userId: string): Promise<Song[]> {
   const base = backendBase();
   if (!base) {
-    return dedupeBySongId(getHomeRecommendations(userId));
+    throw new Error("BACKEND_API_URL is not set");
   }
-  try {
-    const songs = await fetchJson<Song[]>(
-      `/v1/recommendations/home?user_id=${encodeURIComponent(userId)}`,
-    );
-    return dedupeBySongId(songs);
-  } catch {
-    return dedupeBySongId(getHomeRecommendations(userId));
-  }
+  const songs = await fetchJson<Song[]>(
+    `/v1/recommendations/home?user_id=${encodeURIComponent(userId)}`,
+  );
+  return dedupeBySongId(songs);
 }
 
 /** Player: current song + next list from API or mock. */
-export async function resolvePlayContext(songId: string): Promise<{
+export async function resolvePlayContext(
+  songId: string,
+  userId?: string,
+): Promise<{
   song: Song;
   nextSongs: Song[];
 } | null> {
@@ -46,9 +45,9 @@ export async function resolvePlayContext(songId: string): Promise<{
   }
   try {
     const song = await fetchJson<Song>(`/v1/songs/${encodeURIComponent(songId)}`);
-    const nextSongs = await fetchJson<Song[]>(
-      `/v1/recommendations/next?current_song_id=${encodeURIComponent(songId)}`,
-    );
+    const nextQuery = new URLSearchParams({ current_song_id: songId });
+    if (userId) nextQuery.set("user_id", userId);
+    const nextSongs = await fetchJson<Song[]>(`/v1/recommendations/next?${nextQuery.toString()}`);
     return { song, nextSongs };
   } catch {
     const song = getSongById(songId);

@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "postgresql://postgres:postgres@localhost:5432/music"
+    direct_url: str | None = None
     cors_origins: str = "http://localhost:3000"
+    mlflow_tracking_uri: str = "http://localhost:5555"
 
 
 settings = Settings()

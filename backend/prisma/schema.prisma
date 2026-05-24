@@ -47,6 +47,7 @@ model Song {
   liveness           Float?
   valence            Float?
   tempo              Float?
+  embedding          Unsupported("vector(64)")?
   events             AnalyticsEvent[]
 
   @@index([genre], map: "ix_songs_genre")

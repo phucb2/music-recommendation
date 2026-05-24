@@ -20,8 +20,9 @@ async def rec_home(
 @router.get("/next", response_model=list[SongOut])
 async def rec_next(
     current_song_id: str = Query(..., min_length=1),
+    user_id: str | None = Query(default=None, min_length=1),
     prisma: Prisma = Depends(get_prisma),
 ) -> list[Song]:
     if await prisma.song.find_unique(where={"song_id": current_song_id}) is None:
         raise HTTPException(status_code=404, detail="Current song not found")
-    return await next_songs(prisma, current_song_id)
+    return await next_songs(prisma, current_song_id, user_id=user_id)

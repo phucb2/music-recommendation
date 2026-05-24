@@ -17,7 +17,7 @@ export default async function PlayPage({
   const { songId } = await params;
   const { from } = await searchParams;
 
-  const ctx = await resolvePlayContext(songId);
+  const ctx = await resolvePlayContext(songId, session.userId);
   if (!ctx) notFound();
 
   const { song, nextSongs } = ctx;
